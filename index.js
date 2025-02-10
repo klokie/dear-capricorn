@@ -3,12 +3,21 @@ const request = require('request');
 const cheerio = require('cheerio');
 const app     = express();
 
-app.get('/', function(req, res) {
+const DEFAULT_PORT = 4100;
 
-  let date = req.query.date.toLowerCase();
-  let sign = req.query.sign.toLowerCase();
+app.get('/', (req, res) => {
+  const sign = req.query.sign?.toLowerCase() || 'capricorn';
+  const date = req.query.date?.toLowerCase() || 'today';
 
-  let url = 'https://www.astrology.com/horoscope/daily/' + date + '/' + sign + '.html';
+  if (!sign || !date) {
+    return res.status(400).json({
+      error: 'Missing required parameters. Please provide both "sign" and "date"'
+    });
+  }
+
+  const url = 'https://www.astrology.com/horoscope/daily/' + date + '/' + sign + '.html';
+
+  // console.log('url', url);
 
   // The structure of our request call
   // The first parameter is our URL
@@ -19,15 +28,20 @@ app.get('/', function(req, res) {
     if (!error) {
 
       // Next, we'll utilize the cheerio library on the returned html which will essentially give us jQuery functionality
-      var $ = cheerio.load(html);
+      const $ = cheerio.load(html);
 
-      // Finally, we'll define the variable we're going to capture
-      // We'll be using Cheerio's function to single out the necessary information
-      // using DOM selectors which are normally found in CSS.
-      var prediction = $('div.daily-horoscope > p').text();
+      // Updated selector to match the span containing the prediction
+      const prediction = $('#content p span').text();
+
+      if (!prediction) {
+        return res.status(404).json({
+          error: 'No prediction found for the given sign and date',
+          html: html
+        });
+      }
 
       // And now, the JSON format we are going to expose
-      var json = {
+      const json = {
         date: date,
         sign: sign,
         prediction: prediction
@@ -41,5 +55,5 @@ app.get('/', function(req, res) {
 
 });
 
-app.listen(process.env.PORT || 5000);
+app.listen(process.env.PORT || DEFAULT_PORT);
 module.exports = app;
